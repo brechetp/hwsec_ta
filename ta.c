@@ -98,6 +98,32 @@ main (int argc, char **argv)
      n    /* Number of experiments to use. */
     );
 
+  /*****************************************************************************
+   * Compute the Hamming weight of output of first (leftmost) SBox during last *
+   * round, under the assumption that the last round key is all zeros.         *
+   *****************************************************************************/
+  /* Undoes the final permutation on cipher text of n-th experiment. */
+  r16l16 = des_ip (ct[n - 1]);
+  /* Extract right half (strange naming as in the DES standard). */
+  l16 = des_right_half (r16l16);
+  /* Compute output of SBoxes during last round of first experiment, assuming
+   * the last round key is all zeros. */
+  sbo = des_sboxes (des_e (l16) ^ UINT64_C (0));  /* R15 = L16, K16 = 0 */
+  /* Compute and print Hamming weight of output of first SBox (mask the others). */
+  printf ("Hamming weight: %d\n",
+    hamming_weight (sbo & UINT64_C (0xf0000000)));
+
+  /************************************
+   * Compute and print average timing *
+   ************************************/
+  sum = 0.0;      /* Initializes the accumulator for the sum of timing measurements. */
+  for (i = 0; i < n; i++)  /* For all n experiments. */
+    {
+      sum = sum + t[i];    /* Accumulate timing measurements. */
+    }
+  /* Compute and print average timing measurements. */
+  printf ("Average timing: %f\n", sum / (double) (n));
+=======
   ///*****************************************************************************
   // * Compute the Hamming weight of output of first (leftmost) SBox during last *
   // * round, under the assumption that the last round key is all zeros.         *
@@ -181,6 +207,7 @@ main (int argc, char **argv)
           
 
 
+>>>>>>> 8e0bdb6ace88ef12cb3025c569eaa3ec9ae9926a
 
   /*******************************************************************************
    * Try all the 256 secret keys under the assumption that the last round key is *
