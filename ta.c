@@ -41,7 +41,7 @@ information see the LICENCE-fr.txt or LICENSE-en.txt files.
 #include <utils.h>
 #include <des.h>
 #include <km.h>
-#include <pcc.h>
+#include <pcc.h>    /* To use the Pearson Correlation Coefficient */
 
 uint64_t pt;    /* Plain text. */
 uint64_t *ct;   /* Array of cipher texts. */
@@ -98,103 +98,57 @@ main (int argc, char **argv)
      n    /* Number of experiments to use. */
     );
 
-  /*****************************************************************************
-   * Compute the Hamming weight of output of first (leftmost) SBox during last *
-   * round, under the assumption that the last round key is all zeros.         *
-   *****************************************************************************/
-  /* Undoes the final permutation on cipher text of n-th experiment. */
-  r16l16 = des_ip (ct[n - 1]);
-  /* Extract right half (strange naming as in the DES standard). */
-  l16 = des_right_half (r16l16);
-  /* Compute output of SBoxes during last round of first experiment, assuming
-   * the last round key is all zeros. */
-  sbo = des_sboxes (des_e (l16) ^ UINT64_C (0));  /* R15 = L16, K16 = 0 */
-  /* Compute and print Hamming weight of output of first SBox (mask the others). */
-  printf ("Hamming weight: %d\n",
-    hamming_weight (sbo & UINT64_C (0xf0000000)));
 
-  /************************************
-   * Compute and print average timing *
-   ************************************/
-  sum = 0.0;      /* Initializes the accumulator for the sum of timing measurements. */
-  for (i = 0; i < n; i++)  /* For all n experiments. */
-    {
-      sum = sum + t[i];    /* Accumulate timing measurements. */
-    }
-  /* Compute and print average timing measurements. */
-  printf ("Average timing: %f\n", sum / (double) (n));
-
-  ///*****************************************************************************
-  // * Compute the Hamming weight of output of first (leftmost) SBox during last *
-  // * round, under the assumption that the last round key is all zeros.         *
-  // *****************************************************************************/
-  ///* Undoes the final permutation on cipher text of n-th experiment. */
-  //r16l16 = des_ip (ct[n - 1]);
-  ///* Extract right half (strange naming as in the DES standard). */
-  //l16 = des_right_half (r16l16);
-  ///* Compute output of SBoxes during last round of first experiment, assuming
-  // * the last round key is all zeros. */
-  //sbo = des_sboxes (des_e (l16) ^ UINT64_C (0));  /* R15 = L16, K16 = 0 */
-  ///* Compute and print Hamming weight of output of first SBox (mask the others). */
-  //printf ("Hamming weight: %d\n",
-  //  hamming_weight (sbo & UINT64_C (0xf0000000)));
-
-  ///************************************
-  // * Compute and print average timing *
-  // ************************************/
-  //sum = 0.0;      /* Initializes the accumulator for the sum of timing measurements. */
-  //for (i = 0; i < n; i++)  /* For all n experiments. */
-  //  {
-  //    sum = sum + t[i];    /* Accumulate timing measurements. */
-  //  }
-  ///* Compute and print average timing measurements. */
-  //printf ("Average timing: %f\n", sum / (double) (n));
 
   
   /******************************************************************************
    * Statically finds out the key used during one round
    ******************************************************************************/
 
-  uint64_t round_key = 0;
-  uint64_t mask = UINT64_C(0x3f);
-  int shift;
-  int i_m;
-  int key_i;
-  uint64_t input; // input of one sbox
-  int k;
-  int ct_j;
-  pcc_context ctx;
+  uint64_t round_key = 0; /* The key we're interested in, 48 bits */
+  uint64_t mask = UINT64_C(0x3f); /* The mask applied on the input of SBox ..111111 */
+  int shift; /* The SBox # we consider */
+  int i_m; /* The argmax of the jeys PCC */
+  int key_i; /* The 6-bit key we consider */
+  uint64_t input; /* The filtered SBox input*/
+  int k; /* Loop index */
+  int ct_j; /* The ciphertext # */
+  pcc_context ctx; /* The Pearson context */
 
-  for (shift = 1; shift <= 8; shift++)
+  for (shift = 1; shift <= 8; shift++) /* For each SBox */
   {
-      double pearson[64] = {1};
-      i_m = 0;
+      double pearson[64] = {1}; /* Reset the PCCs to 1s */
+      i_m = 0; /* Reset the argmax */
 
-      for (key_i = 0; key_i < 64; key_i++)
+      for (key_i = 0; key_i < 64; key_i++) /* For each 6-bit key */
       {
-          uint64_t key = ((uint64_t) key_i) << (8-shift)*6;
-          int hwt[n];
-          uint64_t sbot[n];
-          ctx = pcc_init(5);
-
-          for (ct_j = 0; ct_j < n; ct_j++)
-          {
-              input = (( des_e( des_right_half( des_ip( ct[ct_j]))) ^ key ) >> (8-shift)*6) & mask; // 0x000000...abcdef
-              printf("The SBox input is %016" PRIx64 "\n", input);
-              sbot[ct_j] = des_sbox(shift, input);
-              hwt[ct_j] = hamming_weight( sbot[ct_j]);
-              pcc_insert_x(ctx, t[ct_j]);
-              pcc_insert_y(ctx, hwt[ct_j], t[ct_j]);
-          }
-          pcc_consolidate(ctx);
+          uint64_t key = ((uint64_t) key_i) << (8-shift)*6; /* We generate the key */
+          int hwt[n]; /* Hamming weights for SBox outputs */
+          uint64_t sbot[n]; /* SBox outputs */
+          double time_clusters[5][n];
+          int cluster_size[5] = {0};
           
-          for (k = 0; k < 5; k++)
+          ctx = pcc_init(5); /* Initialize the Pearson context */
+
+          for (ct_j = 0; ct_j < n; ct_j++) /* For each ciphertext */
           {
-              pearson[key_i] *= pcc_get_pcc(ctx, k);
+              input = ((des_e(des_right_half(des_ip(ct[ct_j]))) ^ key) >> (8-shift)*6) & mask; /* Input ciphering and masking */
+              sbot[ct_j] = des_sbox(shift, input); /* SBox #shift output */
+              hwt[ct_j] = hamming_weight(sbot[ct_j]); /* HW computation */
+              time_clusters[hwt[ct_j]][cluster_size[hwt[ct_j]]] = t[ct_j];
+              cluster_size[hwt[ct_j]] += 1;
           }
-          pcc_free(ctx);
-          i_m = (pearson[key_i] > pearson[i_m]) ? key_i : i_m;
-      }
+
+          int min_cluster_size = n; /* Minimum cluster size */
+          int p; /* Loop index */
+          for (p = 0; p < 5; p++) /* We compute the minimum cluster size */
+          {
+              min_cluster_size = (cluster_size[p] < min_cluster_size) ? cluster_size[p] : min_cluster_size;
+              printf("The cluster %d has %d items.\n", p, cluster_size[p]);
+          }
+
+
+      } 
       round_key = round_key ^ (((uint64_t) i_m) << (8-shift)*6);
       printf ("The round key is %016" PRIx64 "\n", round_key);
   }
