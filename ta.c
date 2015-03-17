@@ -129,13 +129,13 @@ main (int argc, char **argv)
      16,    /* Round key number */
      1,    /* Force (we do not care about conflicts with pre-existing knowledge) */
      UINT64_C (0xffffffffffff),  /* We 'know' all the 48 bits of the round key */
-     (uint64_t) (round_key)  /* The all zeros value for the round key */
+     (uint64_t) k16  /* The all zeros value for the round key */
     );
   /* Brute force attack with the knowledge we have and a known
    * plain text - cipher text pair as an oracle. */
   if (!brute_force (km, pt, ct[0]))
     {
-      printf ("Too bad, we lose: the last round key is not all zeros.\n");
+      printf ("Too bad, we lose: the last round key is not %" PRIx64".\n", k16);
     }
   free (ct);      /* Deallocate cipher texts */
   free (t);      /* Deallocate timings */
@@ -205,34 +205,30 @@ round_key (uint64_t *ct, double *t, int n)
   uint64_t round_key = 0; /* The key we're interested in, 48 bits */
   uint64_t mask = UINT64_C(0x3f); /* The mask applied on the input of SBox ..111111 */
   int sbox_k; /* The SBox # we consider */
-  int i_m; /* The argmax of the jeys PCC */
-  int key_i; /* The 6-bit key we consider */
-  uint64_t input; /* The filtered SBox input*/
-  int ct_j; /* The ciphertext number */
   pcc_context ctx; /* The Pearson context */
 
   for (sbox_k = 1; sbox_k <= 8; sbox_k++) /* For each SBox */
   {
       double pearson[64] ; /* Reset the PCCs */
-      i_m = 0; /* Reset the argmax */
+      int key_i; /* The 6-bit key we consider */
+      int i_m = 0; /* Reset the argmax */
 
       for (key_i = 0; key_i < 64; key_i++) /* For each 6-bit key */
       {
           uint64_t key = ((uint64_t) key_i) << (8-sbox_k)*6; /* We generate the key fitting the SBox # */
-          int hw; /* Hamming weight for the SBox output */
-          uint64_t sbo; /* SBox output */
           double time_clusters[5][n]; /* Time clusters, depending ont the HW */
           int cluster_size[5] = {0}; /* Clusters size */
+          int ct_j; /* The ciphertext number */
           
           ctx = pcc_init(4); /* Initialize the Pearson context */
 
           for (ct_j = 0; ct_j < n; ct_j++) /* For each ciphertext */
           {
-              input = ((des_e(des_right_half(ct[ct_j])) ^ key) >> (8-sbox_k)*6) & mask; /* Input ciphering and masking */
-              sbo = des_sbox(sbox_k, input); /* SBox #sbox_k output */
-              hw = hamming_weight(sbo); /* HW computation */
-              time_clusters[hw][cluster_size[hw]] = t[ct_j];
-              cluster_size[hw] += 1;
+              uint64_t sb_input = ((des_e(des_right_half(ct[ct_j])) ^ key) >> (8-sbox_k)*6) & mask; /* Input ciphering and masking */
+              uint64_t sb_output = des_sbox(sbox_k, sb_input); /* SBox #sbox_k output */
+              int hw = hamming_weight(sb_output); /* HW computation */
+              time_clusters[hw][cluster_size[hw]] = t[ct_j]; /* We cluster the time taken according to HW */
+              cluster_size[hw] += 1; /* We keep track of the cluster sizes */
           }
 
           int min_cluster_size = n; /* Minimum cluster size */
@@ -243,9 +239,9 @@ round_key (uint64_t *ct, double *t, int n)
               min_cluster_size = (cluster_size[p] < min_cluster_size) ? cluster_size[p] : min_cluster_size;
           }
 
-          for (p = 0; p < min_cluster_size; p++)
+          for (p = 0; p < min_cluster_size; p++) /* We insert the random variable values into the PCC context ctx */
           {
-              pcc_insert_x(ctx, time_clusters[0][p]);
+              pcc_insert_x(ctx, time_clusters[0][p]); /* We use the HW=0 as a reference */
               
               for (q = 0; q < 4; q++)
               {
@@ -257,16 +253,16 @@ round_key (uint64_t *ct, double *t, int n)
           
           for (q = 0; q < 4; q++)
           {
-              pearson[key_i] += pcc_get_pcc(ctx, q); 
+              pearson[key_i] += pcc_get_pcc(ctx, q); /* Average of the PCCs */
 
           }
           pearson[key_i] /= 4;
-          pcc_free(ctx);
+          pcc_free(ctx); /* We free the context for later use */
           i_m = (pearson[key_i] > pearson[i_m]) ? key_i : i_m; /* We keep the max pcc index */
 
       } 
       
-      round_key = round_key | (((uint64_t) i_m) << (8-sbox_k)*6);
+      round_key = round_key | (((uint64_t) i_m) << (8-sbox_k)*6); /* The round key is constructed SBox-by-Sbox */
 
   }
   return round_key;
