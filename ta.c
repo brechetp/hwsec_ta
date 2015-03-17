@@ -112,7 +112,7 @@ main (int argc, char **argv)
   int key_i; /* The 6-bit key we consider */
   uint64_t input; /* The filtered SBox input*/
   int k; /* Loop index */
-  int ct_j; /* The ciphertext # */
+  int ct_j; /* The ciphertext number */
   pcc_context ctx; /* The Pearson context */
 
   for (shift = 1; shift <= 8; shift++) /* For each SBox */
@@ -128,7 +128,7 @@ main (int argc, char **argv)
           double time_clusters[5][n];
           int cluster_size[5] = {0};
           
-          ctx = pcc_init(5); /* Initialize the Pearson context */
+          ctx = pcc_init(4); /* Initialize the Pearson context */
 
           for (ct_j = 0; ct_j < n; ct_j++) /* For each ciphertext */
           {
@@ -141,17 +141,38 @@ main (int argc, char **argv)
 
           int min_cluster_size = n; /* Minimum cluster size */
           int p; /* Loop index */
+          int q; /* Loop index */
           for (p = 0; p < 5; p++) /* We compute the minimum cluster size */
           {
               min_cluster_size = (cluster_size[p] < min_cluster_size) ? cluster_size[p] : min_cluster_size;
-              printf("The cluster %d has %d items.\n", p, cluster_size[p]);
           }
 
+          for (p = 0; p < min_cluster_size; p++)
+          {
+              pcc_insert_x(ctx, time_clusters[0][p]);
+              
+              for (q = 0; q < 4; q++)
+              {
+                  pcc_insert_y(ctx, q, time_clusters[q+1][p]);
+              }
+          }
+          pcc_consolidate(ctx);
+          
+          for (q = 0; q < 4; q++)
+          {
+              pearson[key_i] *= pcc_get_pcc(ctx, q);
+
+          }
+          pcc_free(ctx);
+          i_m = (pearson[key_i] > pearson[i_m]) ? key_i : i_m; /* We keep the max pcc index */
 
       } 
+
       round_key = round_key ^ (((uint64_t) i_m) << (8-shift)*6);
-      printf ("The round key is %016" PRIx64 "\n", round_key);
+      printf("The round key is %" PRIx64 "\nThe PCC is %f\n", round_key, pearson[i_m]);
+
   }
+  printf("The round key is %" PRIx64 "\n", round_key);
 
 
 
