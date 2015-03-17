@@ -107,7 +107,7 @@ main (int argc, char **argv)
 
   uint64_t round_key = 0; /* The key we're interested in, 48 bits */
   uint64_t mask = UINT64_C(0x3f); /* The mask applied on the input of SBox ..111111 */
-  int shift; /* The SBox # we consider */
+  int sbox_k; /* The SBox # we consider */
   int i_m; /* The argmax of the jeys PCC */
   int key_i; /* The 6-bit key we consider */
   uint64_t input; /* The filtered SBox input*/
@@ -115,28 +115,28 @@ main (int argc, char **argv)
   int ct_j; /* The ciphertext number */
   pcc_context ctx; /* The Pearson context */
 
-  for (shift = 1; shift <= 8; shift++) /* For each SBox */
+  for (sbox_k = 1; sbox_k <= 8; sbox_k++) /* For each SBox */
   {
       double pearson[64] ; /* Reset the PCCs */
       i_m = 0; /* Reset the argmax */
 
       for (key_i = 0; key_i < 64; key_i++) /* For each 6-bit key */
       {
-          uint64_t key = ((uint64_t) key_i) << (8-shift)*6; /* We generate the key */
-          int hwt[n]; /* Hamming weights for SBox outputs */
-          uint64_t sbot[n]; /* SBox outputs */
-          double time_clusters[5][n];
-          int cluster_size[5] = {0};
+          uint64_t key = ((uint64_t) key_i) << (8-sbox_k)*6; /* We generate the key fitting the SBox # */
+          int hw; /* Hamming weight for the SBox output */
+          uint64_t sbo; /* SBox output */
+          double time_clusters[5][n]; /* Time clusters, depending ont the HW */
+          int cluster_size[5] = {0}; /* Clusters size */
           
           ctx = pcc_init(4); /* Initialize the Pearson context */
 
           for (ct_j = 0; ct_j < n; ct_j++) /* For each ciphertext */
           {
-              input = ((des_e(des_right_half(des_ip(ct[ct_j]))) ^ key) >> (8-shift)*6) & mask; /* Input ciphering and masking */
-              sbot[ct_j] = des_sbox(shift, input); /* SBox #shift output */
-              hwt[ct_j] = hamming_weight(sbot[ct_j]); /* HW computation */
-              time_clusters[hwt[ct_j]][cluster_size[hwt[ct_j]]] = t[ct_j];
-              cluster_size[hwt[ct_j]] += 1;
+              input = ((des_e(des_right_half(des_ip(ct[ct_j]))) ^ key) >> (8-sbox_k)*6) & mask; /* Input ciphering and masking */
+              sbo = des_sbox(sbox_k, input); /* SBox #sbox_k output */
+              hw = hamming_weight(sbo); /* HW computation */
+              time_clusters[hw][cluster_size[hw]] = t[ct_j];
+              cluster_size[hw] += 1;
           }
 
           int min_cluster_size = n; /* Minimum cluster size */
@@ -169,7 +169,7 @@ main (int argc, char **argv)
 
       } 
       
-      round_key = round_key | (((uint64_t) i_m) << (8-shift)*6);
+      round_key = round_key | (((uint64_t) i_m) << (8-sbox_k)*6);
       printf("The round key is %" PRIx64 "\nThe PCC is %f\nThe index is %d\n", round_key, pearson[i_m], i_m);
 
   }
