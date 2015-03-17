@@ -111,7 +111,12 @@ main (int argc, char **argv)
 
   k16 = round_key(ct16, t, n);
 
-  printf("The key #16 is %" PRIx64 "\n", k16);
+  printf("The key #16 is thought to be %" PRIx64 "\n", k16);
+
+  uint64_t *l15;
+
+  l15 = XCALLOC (n, sizeof (uint64_t));
+
 
 
 
