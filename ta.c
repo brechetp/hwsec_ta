@@ -41,6 +41,7 @@ information see the LICENCE-fr.txt or LICENSE-en.txt files.
 #include <utils.h>
 #include <des.h>
 #include <km.h>
+#include <pcc.h>
 
 uint64_t pt;    /* Plain text. */
 uint64_t *ct;   /* Array of cipher texts. */
@@ -122,6 +123,91 @@ main (int argc, char **argv)
     }
   /* Compute and print average timing measurements. */
   printf ("Average timing: %f\n", sum / (double) (n));
+=======
+  ///*****************************************************************************
+  // * Compute the Hamming weight of output of first (leftmost) SBox during last *
+  // * round, under the assumption that the last round key is all zeros.         *
+  // *****************************************************************************/
+  ///* Undoes the final permutation on cipher text of n-th experiment. */
+  //r16l16 = des_ip (ct[n - 1]);
+  ///* Extract right half (strange naming as in the DES standard). */
+  //l16 = des_right_half (r16l16);
+  ///* Compute output of SBoxes during last round of first experiment, assuming
+  // * the last round key is all zeros. */
+  //sbo = des_sboxes (des_e (l16) ^ UINT64_C (0));  /* R15 = L16, K16 = 0 */
+  ///* Compute and print Hamming weight of output of first SBox (mask the others). */
+  //printf ("Hamming weight: %d\n",
+  //  hamming_weight (sbo & UINT64_C (0xf0000000)));
+
+  ///************************************
+  // * Compute and print average timing *
+  // ************************************/
+  //sum = 0.0;      /* Initializes the accumulator for the sum of timing measurements. */
+  //for (i = 0; i < n; i++)  /* For all n experiments. */
+  //  {
+  //    sum = sum + t[i];    /* Accumulate timing measurements. */
+  //  }
+  ///* Compute and print average timing measurements. */
+  //printf ("Average timing: %f\n", sum / (double) (n));
+
+  
+  /******************************************************************************
+   * Statically finds out the key used during one round
+   ******************************************************************************/
+
+  uint64_t round_key = 0;
+  uint64_t mask = UINT64_C(0x3f);
+  int shift;
+  int i_m;
+  int key_i;
+  uint64_t input; // input of one sbox
+  int k;
+  int ct_j;
+  pcc_context ctx;
+
+  for (shift = 1; shift <= 8; shift++)
+  {
+      double pearson[64] = {1};
+      i_m = 0;
+
+      for (key_i = 0; key_i < 64; key_i++)
+      {
+          uint64_t key = ((uint64_t) key_i) << (8-shift)*6;
+          int hwt[n];
+          uint64_t sbot[n];
+          ctx = pcc_init(5);
+
+          for (ct_j = 0; ct_j < n; ct_j++)
+          {
+              input = (( des_e( des_right_half( des_ip( ct[ct_j]))) ^ key ) >> (8-shift)*6) & mask; // 0x000000...abcdef
+              printf("The SBox input is %016" PRIx64 "\n", input);
+              sbot[ct_j] = des_sbox(shift, input);
+              hwt[ct_j] = hamming_weight( sbot[ct_j]);
+              pcc_insert_x(ctx, t[ct_j]);
+              pcc_insert_y(ctx, hwt[ct_j], t[ct_j]);
+          }
+          pcc_consolidate(ctx);
+          
+          for (k = 0; k < 5; k++)
+          {
+              pearson[key_i] *= pcc_get_pcc(ctx, k);
+          }
+          pcc_free(ctx);
+          i_m = (pearson[key_i] > pearson[i_m]) ? key_i : i_m;
+      }
+      round_key = round_key ^ (((uint64_t) i_m) << (8-shift)*6);
+      printf ("The round key is %016" PRIx64 "\n", round_key);
+  }
+
+
+
+
+
+
+          
+
+
+>>>>>>> 8e0bdb6ace88ef12cb3025c569eaa3ec9ae9926a
 
   /*******************************************************************************
    * Try all the 256 secret keys under the assumption that the last round key is *
