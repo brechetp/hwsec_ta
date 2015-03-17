@@ -1,0 +1,80 @@
+Pierre Brechet
+Hostname: glacier
+
+*** Timing attack against a DES sofware implementation ***
+
+The permutation function P is vulnerable to a timing attack. Its computation time depends on its entry, which is linked with the round key. By measuring the time taken by P and correlating it with the overall time taken by DES to encipher a plaintext, we can get informations about the round key and thus the key (by reverting the key schedule).
+
+We will work on the last round of the ciphering. We are interested in the Feistel function. We have f(R15, K16) = P(S1(B1)S2(B2)...S8(B8)).
+Each Bi is 6-bit long, and we have S1S2...S8 = E(R15) XOR K16.
+K16 and the expanded R15 are 48-bit long.
+
+The result of each Si is 4-bit long and depends on 6 bits from the key. Therefore, we will attack the key six bits by six.
+
+Out of the 64 possible keys, one is considered. We will then have 100.000 different outputs of the S1 box, in which information about the secret key is hidden.
+
+We could partition the set of outputs regarding their Hamming weight (HW).
+For example, keeping those with a HW=0 and a HW=4, discarding others, loosing 1/8 of the outputs. Then, a standard differentiation could be computed.
+To loose a bit less of data, we could partition the outputs with a HW of 0 or 1 on the one hand, and 3 and 4 on the other. But then, we would loose accurency and still discard 3/8 of the data.
+
+An other way to counter the problem is to use the Pearson correlation coefficient on the time model we have for 6 bits of the key.
+
+Time model: T = A*HW(S1(B1)) + B + N
+N: noise from other computations
+B: time constant of the P function
+A: coefficient linked to the input data (constant time taken by the for loop)
+
+We want to check the linear dependency of the different total times taken by the different groups (HW0, HW1, HW2, HW3, HW4).
+
+If there is a linear dependency between them, the key hypothesis is the good one. So we keep the key hypothesis where the PCC(Xi, X(i+1)) are the higher (by maximizing their product for example).
+The Xi (0<=i<=4) are the random variables associated with the time taken by the ciphering of the text giving a Hamming weight of i).
+
+
+To implement the attack, we will need (for a given key K and a given SBox):
+- sbot (SBox outputs table), a n-long table containing the SBox outputs for the last round
+- hwt (Hamming wight table), a n-long table containing the HW of the considered SBox output
+- time, a 5*n table containing the clustered times (depending on the HW)
+- size, a 5-long table containing the size of the cluster p 
+
+We also need
+- pearson_table, a 64-long table (one cell per key) containing the absolute value of the product pcc(time[k], time[k+1]), k=0..3
+
+The algorithm can be described as follow:
+
+Inputs: ct, t
+master_key = 0 // 64 bits key we will contruct
+MASK = 0xf0000000 // 111100000... 28 0s
+for shift = 0 to 7 do
+    reset double table pearson to 1s
+    i_m = 0 // argmax pearson
+    for key_i = 0 to 63 do
+        key = key_i << (7-shift)*6
+        reset int table hwt
+        reset uint64_t table sbot 
+        reset int table size
+        new pcc_context ctx
+        for ct_j = 0 to (n-1) do
+            sbot[ct_j] = des_sboxes ( des_e ( des_right_half ( des_ip ( ct[ct_j] ) ) ) )
+            hwt[ct_j] = hamming_weight ( sbot[ct_j] & MASK )
+            pcc_insert_x (ctx, t[ct_j]) // we add the to PCC context the value t[ct_j]
+            pcc_insert_y (ctx, hwt[ct_j], t[ct_j]) // we had the new Yk value, k = HW
+        end for
+        pcc_consolidate(ctx) // compute the pearson coeffs
+        for k = 0 to 4 do
+            pearson[key_i] = pearson[key_i]*pcc_get_pcc(ctx, k)
+        end for
+        pcc_free(ctx)
+        i_m = (pearson[key_i] > pearson[i_m]) ? key_i : i_m
+    end for
+    MASK = MASK >> 6 // we shift the mask 6 bits to the right
+    master_key = master_key or i_m << (7-shift) * 6
+end for
+
+
+
+
+
+
+
+
+
