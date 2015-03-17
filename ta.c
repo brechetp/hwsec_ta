@@ -123,7 +123,7 @@ main (int argc, char **argv)
     }
   /* Compute and print average timing measurements. */
   printf ("Average timing: %f\n", sum / (double) (n));
-=======
+
   ///*****************************************************************************
   // * Compute the Hamming weight of output of first (leftmost) SBox during last *
   // * round, under the assumption that the last round key is all zeros.         *
@@ -207,7 +207,6 @@ main (int argc, char **argv)
           
 
 
->>>>>>> 8e0bdb6ace88ef12cb3025c569eaa3ec9ae9926a
 
   /*******************************************************************************
    * Try all the 256 secret keys under the assumption that the last round key is *
