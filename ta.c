@@ -117,7 +117,7 @@ main (int argc, char **argv)
 
   for (shift = 1; shift <= 8; shift++) /* For each SBox */
   {
-      double pearson[64] = {1}; /* Reset the PCCs to 1s */
+      double pearson[64] ; /* Reset the PCCs */
       i_m = 0; /* Reset the argmax */
 
       for (key_i = 0; key_i < 64; key_i++) /* For each 6-bit key */
@@ -157,19 +157,20 @@ main (int argc, char **argv)
               }
           }
           pcc_consolidate(ctx);
+          pearson[key_i] = 1;
           
           for (q = 0; q < 4; q++)
           {
-              pearson[key_i] *= pcc_get_pcc(ctx, q);
+              pearson[key_i] *= pcc_get_pcc(ctx, q); 
 
           }
           pcc_free(ctx);
           i_m = (pearson[key_i] > pearson[i_m]) ? key_i : i_m; /* We keep the max pcc index */
 
       } 
-
-      round_key = round_key ^ (((uint64_t) i_m) << (8-shift)*6);
-      printf("The round key is %" PRIx64 "\nThe PCC is %f\n", round_key, pearson[i_m]);
+      
+      round_key = round_key | (((uint64_t) i_m) << (8-shift)*6);
+      printf("The round key is %" PRIx64 "\nThe PCC is %f\nThe index is %d\n", round_key, pearson[i_m], i_m);
 
   }
   printf("The round key is %" PRIx64 "\n", round_key);
