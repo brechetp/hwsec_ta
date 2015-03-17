@@ -37,6 +37,7 @@ information see the LICENCE-fr.txt or LICENSE-en.txt files.
 #include <stdlib.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <math.h>
 
 #include <utils.h>
 #include <des.h>
@@ -157,23 +158,24 @@ main (int argc, char **argv)
               }
           }
           pcc_consolidate(ctx);
-          pearson[key_i] = 1;
+          pearson[key_i] = 0;
           
           for (q = 0; q < 4; q++)
           {
               pearson[key_i] *= pcc_get_pcc(ctx, q); 
 
           }
+          pearson[key_i] /= 4;
           pcc_free(ctx);
           i_m = (pearson[key_i] > pearson[i_m]) ? key_i : i_m; /* We keep the max pcc index */
 
       } 
       
-      round_key = round_key | (((uint64_t) i_m) << (8-sbox_k)*6);
-      printf("The round key is %" PRIx64 "\nThe PCC is %f\nThe index is %d\n", round_key, pearson[i_m], i_m);
+      round_key = round_key | (((uint64_t) i_m) << (8-shift)*6);
+      printf("The round key at round #%d is %016" PRIx64 "\nThe PCC is %f\nThe index is %d\n", shift, round_key, pearson[i_m], i_m);
 
   }
-  printf("The round key is %" PRIx64 "\n", round_key);
+  printf("The round key is %016" PRIx64 "\n", round_key);
 
 
 
@@ -197,7 +199,7 @@ main (int argc, char **argv)
      16,    /* Round key number */
      1,    /* Force (we do not care about conflicts with pre-existing knowledge) */
      UINT64_C (0xffffffffffff),  /* We 'know' all the 48 bits of the round key */
-     UINT64_C (0x000000000000)  /* The all zeros value for the round key */
+     (uint64_t) (round_key)  /* The all zeros value for the round key */
     );
   /* Brute force attack with the knowledge we have and a known
    * plain text - cipher text pair as an oracle. */

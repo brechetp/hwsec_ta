@@ -34,10 +34,7 @@ To implement the attack, we will need (for a given key K and a given SBox):
 - sbot (SBox outputs table), a n-long table containing the SBox outputs for the last round
 - hwt (Hamming wight table), a n-long table containing the HW of the considered SBox output
 - time, a 5*n table containing the clustered times (depending on the HW)
-<<<<<<< HEAD
-=======
 - size, a 5-long table containing the size of the cluster p 
->>>>>>> 8e0bdb6ace88ef12cb3025c569eaa3ec9ae9926a
 
 We also need
 - pearson_table, a 64-long table (one cell per key) containing the absolute value of the product pcc(time[k], time[k+1]), k=0..3
@@ -45,19 +42,7 @@ We also need
 The algorithm can be described as follow:
 
 Inputs: ct, t
-<<<<<<< HEAD
 
-for shift = 0 to 7 do
-    reset double table pearson to 1s
-    MASK = MASK >> 6 // we shift the mask 6 bits to the right
-    for key_i = 0 to 63 do
-        key = key_i >> shift*6
-        reset int table hwt
-        reset uint64_t table sbot 
-        for ct_j = 0 to (n-1) do
-            sbot[ct_j] = des_sboxes ( des_e ( des_right_half ( des_ip ( ct[ct_j] ) ) ) )
-            hwt[ct_j] = hamming_weight ( sbot[ct_j] & MASK )
-=======
 master_key = 0 // 64 bits key we will contruct
 MASK = 0xf0000000 // 111100000... 28 0s
 for shift = 0 to 7 do
@@ -89,7 +74,6 @@ end for
 
 
 
->>>>>>> 8e0bdb6ace88ef12cb3025c569eaa3ec9ae9926a
 
 
 
