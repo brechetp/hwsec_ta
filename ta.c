@@ -69,8 +69,8 @@ main (int argc, char **argv)
   int n;              /* Required number of experiments. */
   int i;              /* Loop index. */
   des_key_manager km; /* Key manager. */
-  uint64_t *ct16;     /* Unfolded ciphertexts */
-  uint64_t k16;       /* 16th round key */
+  uint64_t *r15, *r16; /* Right halves of text */
+  uint64_t k15, k16;       /* 16th round key */
 
   /************************************************************************/
   /* Before doing anything else, check the correctness of the DES library */
@@ -102,20 +102,32 @@ main (int argc, char **argv)
      n    /* Number of experiments to use. */
     );
   
-  ct16 = XCALLOC (n, sizeof (uint64_t));
+  r15 = XCALLOC (n, sizeof (uint64_t));
+  r16 = XCALLOC (n, sizeof(uint64_t));
 
   for (i = 0; i < n; i++)
   {
-      ct16[i] = des_ip(ct[i]);
+      r15[i] = des_right_half(des_ip(ct[i])); /* We keep the least-significant bits of the ciphertext (l16 = r15) */
+      r16[i] = des_left_half(des_ip(ct[i]));
   }
 
-  k16 = round_key(ct16, t, n);
+  k16 = round_key(r15, t, n);
 
   printf("The key #16 is thought to be %" PRIx64 "\n", k16);
 
-  uint64_t *l15;
+  uint64_t *r14;
 
-  l15 = XCALLOC (n, sizeof (uint64_t));
+  r14 = XCALLOC (n, sizeof (uint64_t));
+
+  for (i = 0; i < n; i++)
+  {
+      r14[i] = r16[i] ^ des_p( des_sboxes ((des_e(r15[i]) ^ k16)));
+  }
+
+  k15 = round_key(r14, t, n);
+  
+  printf("The key #15 is thought to be %" PRIx64 "\n", k15);
+
 
 
 
@@ -131,16 +143,16 @@ main (int argc, char **argv)
   km = des_km_init ();    /* Initialize the key manager with no knowledge. */
   /* Tell the key manager that we 'know' the last round key (#16) is all zeros. */
   des_km_set_rk (km,    /* Key manager */
-     16,    /* Round key number */
+     15,    /* Round key number */
      1,    /* Force (we do not care about conflicts with pre-existing knowledge) */
      UINT64_C (0xffffffffffff),  /* We 'know' all the 48 bits of the round key */
-     (uint64_t) k16  /* The all zeros value for the round key */
+     (uint64_t) k15  /* The all zeros value for the round key */
     );
   /* Brute force attack with the knowledge we have and a known
    * plain text - cipher text pair as an oracle. */
   if (!brute_force (km, pt, ct[0]))
     {
-      printf ("Too bad, we lose: the last round key is not %" PRIx64".\n", k16);
+      printf ("Too bad, we lose: the last round key is not %" PRIx64".\n", k15);
     }
   free (ct);      /* Deallocate cipher texts */
   free (t);      /* Deallocate timings */
@@ -201,7 +213,7 @@ brute_force (des_key_manager km, uint64_t pt, uint64_t ct)
 }
 
 uint64_t
-round_key (uint64_t *ct, double *t, int n)
+round_key (uint64_t *r, double *t, int n)
 {
   /******************************************************************************
    * Statically finds out the key used during one round
@@ -214,19 +226,19 @@ round_key (uint64_t *ct, double *t, int n)
 
   for (sbox_k = 1; sbox_k <= 8; sbox_k++) /* For each SBox */
   {
-      int ct_j; /* The ciphertext number */
+      int r_j; /* The right-half text number */
       ctx = pcc_init(64); /* Initialize the Pearson context */
       int key_i; /* The 6-bit key we consider */
       
-      for (ct_j = 0; ct_j < n; ct_j++) /* For each ciphertext */
+      for (r_j = 0; r_j < n; r_j++) /* For each ciphertext */
       {
-          pcc_insert_x(ctx, t[ct_j]);
+          pcc_insert_x(ctx, t[r_j]);
       
             for (key_i = 0; key_i < 64; key_i++) /* For each 6-bit key */
             {
             
             uint64_t key = ((uint64_t) key_i) << (8-sbox_k)*6; /* We generate the key fitting the SBox # */
-            uint64_t sb_input = ((des_e(des_right_half(ct[ct_j])) ^ key) >> (8-sbox_k)*6) & mask; /* Input ciphering and masking */
+            uint64_t sb_input = ((des_e(r[r_j]) ^ key) >> (8-sbox_k)*6) & mask; /* Input ciphering and masking */
             uint64_t sb_output = des_sbox(sbox_k, sb_input); /* SBox #sbox_k output */
             int hw = hamming_weight(sb_output); /* HW computation */
             pcc_insert_y(ctx, key_i, hw);
