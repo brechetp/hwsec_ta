@@ -131,7 +131,7 @@ main (int argc, char **argv)
      k16  /* The value for the round key #16 */
     );
 
-    if (brute_force(km, ct[0], ct[1]))
+    if (brute_force(km, pt, ct[0]))
     {
        printf("Congratulations!\n");
     }
@@ -139,6 +139,11 @@ main (int argc, char **argv)
     {
         printf("Macaron\n");
     }
+    free (t);
+    free (r15);
+    free (r16);
+    free (ct);
+    des_km_free(km);
 
 
 

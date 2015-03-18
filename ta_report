@@ -17,61 +17,55 @@ We could partition the set of outputs regarding their Hamming weight (HW).
 For example, keeping those with a HW=0 and a HW=4, discarding others, loosing 1/8 of the outputs. Then, a standard differentiation could be computed.
 To loose a bit less of data, we could partition the outputs with a HW of 0 or 1 on the one hand, and 3 and 4 on the other. But then, we would loose accurency and still discard 3/8 of the data.
 
-An other way to counter the problem is to use the Pearson correlation coefficient on the time model we have for 6 bits of the key.
+An other way to counter the problem is to use the Pearson correlation coefficient on the time model we have for each of the 8 6-bit chunks of the key.
 
 Time model: T = A*HW(S1(B1)) + B + N
 N: noise from other computations
 B: time constant of the P function
-A: coefficient linked to the input data (constant time taken by the for loop)
+A: coefficient linked to the input data (constant time taken by the 'for' loop)
+T: total time computed
 
-We want to check the linear dependency of the different total times taken by the different groups (HW0, HW1, HW2, HW3, HW4).
+There is a small-but-existing linear dependence between T and the Hamming weight of the SBoxe output in this model. The given function P takes HW(S1(B1)) times more time to compute.
 
-If there is a linear dependency between them, the key hypothesis is the good one. So we keep the key hypothesis where the PCC(Xi, X(i+1)) are the higher (by maximizing their product for example).
-The Xi (0<=i<=4) are the random variables associated with the time taken by the ciphering of the text giving a Hamming weight of i).
+To exploit this dependence, we need a large number of experiments on which we can test the model.
 
+For each experiment, we will try every possible 6-bit keys from 0 to 63. Each key will result in a different Hamming weight. These 64 results from 0 to 4 will be considered as our time measurement: we have 64 random variables (Y0...Y63) we will try to correlate to the random variable X (i.e. the actual time taken by the entire ciphering).
 
-To implement the attack, we will need (for a given key K and a given SBox):
-- sbot (SBox outputs table), a n-long table containing the SBox outputs for the last round
-- hwt (Hamming wight table), a n-long table containing the HW of the considered SBox output
-- time, a 5*n table containing the clustered times (depending on the HW)
-- size, a 5-long table containing the size of the cluster p 
+An experiment consits in applying the last-round Feistel function to a r16 message. The number of experiments is therefore the number of ciphertexts we have out our disposal.
 
-We also need
-- pearson_table, a 64-long table (one cell per key) containing the absolute value of the product pcc(time[k], time[k+1]), k=0..3
+To discriminate the good 6-bit chunk of the 48-bit key, we only have to keep the Yj with the highest PCC (in absolute value), i.e. the one which is the more correlated to X.
 
-The algorithm can be described as follow:
+We then have to iterate over the 8 SBoxes using the same proof.
 
-Inputs: ct, t
+We (hopefully) end up with a 48-bit key, k16. We are lucky to have one plain text. We can therefore bruteforce the 2^(56-48) = 256 possible keys, reversing the key management.
 
-master_key = 0 // 64 bits key we will contruct
-MASK = 0xf0000000 // 111100000... 28 0s
-for shift = 0 to 7 do
-    reset double table pearson to 1s
-    i_m = 0 // argmax pearson
-    for key_i = 0 to 63 do
-        key = key_i << (7-shift)*6
-        reset int table hwt
-        reset uint64_t table sbot 
-        reset int table size
-        new pcc_context ctx
-        for ct_j = 0 to (n-1) do
-            sbot[ct_j] = des_sboxes ( des_e ( des_right_half ( des_ip ( ct[ct_j] ) ) ) )
-            hwt[ct_j] = hamming_weight ( sbot[ct_j] & MASK )
-            pcc_insert_x (ctx, t[ct_j]) // we add the to PCC context the value t[ct_j]
-            pcc_insert_y (ctx, hwt[ct_j], t[ct_j]) // we had the new Yk value, k = HW
-        end for
-        pcc_consolidate(ctx) // compute the pearson coeffs
-        for k = 0 to 4 do
-            pearson[key_i] = pearson[key_i]*pcc_get_pcc(ctx, k)
-        end for
-        pcc_free(ctx)
-        i_m = (pearson[key_i] > pearson[i_m]) ? key_i : i_m
-    end for
-    MASK = MASK >> 6 // we shift the mask 6 bits to the right
-    master_key = master_key or i_m << (7-shift) * 6
-end for
+We could also revert the round #16 to have acces to l15 = r14 and hack k15 with the same algorithm. Once k15 and k16 are known, the key manager can retrieve the 64-bit key.
 
+The algorithm for the hack of k16 can be described as follow:
 
+Inputs: n-long table r15, n-long table t
+
+round_key = 0                               
+for sbox_k = 1 to 8 do
+    ctx <- pcc_context(64);
+    for r_j = 1 to n do
+        add t[r_j] to ctx_x
+        for key_i = 0 to 63 do
+            6_bit_key = key_i << (8 - sbox_k)*6
+            sb_input = ((des_exp(r[r_j]) XOR k) >> (8 - sbox_k)*6) AND 0x3f
+            sb_output = des_sbox(sbox_k, sb_input)
+            hw = hamming_weight(sb_output)
+            add hw to ctx_keyi
+        done
+        consolidate ctx
+        i_max = argmax pcc
+
+        round_key = round_key OR (i_max << (8 - sbox_k)*6)
+    done
+round_key == k16
+done
+
+k15 can be retrieve with r14 = l15 = (r16 XOR f(r15, k16)) as an input instead of r15.
 
 
 
