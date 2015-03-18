@@ -53,7 +53,7 @@ int p_table[32] = { 16, 7, 20, 21,
   22, 11, 4, 25
 };
 
-int n_p[32];
+static int n_p[32];
 
 /* Returns the value of a given bit (0 or 1) of a 32 bits word. Positions are
  * numbered as in the DES standard: 1 is the leftmost and 32 is the rightmost.
@@ -73,7 +73,7 @@ uint64_t unset_bit (int position, uint64_t val);
 uint64_t force_bit (int position, int value, uint64_t val);
 
 /* Inverse the P function */
-void inverse_p (int* p);
+void inverse_p ();
 
 /* Applies the P permutation to a 32 bits word and returns the result as another
  * 32 bits word. */
@@ -83,10 +83,11 @@ des_p_ta (uint64_t val)
   uint64_t res;
   int i;
 
+  inverse_p();
   res = UINT64_C (0);
   for (i = 1; i <= 32; i++)
     {
-        res = set_bit (n_p[i],get_bit(i, val), res); /* We set the n_p[i]th bit to val[i] (thanks to get_bit) */
+        res = set_bit (n_p[i-1],get_bit(i, val), res); /* We set the n_p[i]th bit to val[i] (thanks to get_bit) */
     }
   return res;
 }
@@ -158,12 +159,12 @@ force_bit (int position, int value, uint64_t val)
 }
 
 void
-inverse_p (int *p) /* We inverse the p table */
+inverse_p () /* We inverse the p table */
 {
     int k; /* Loop index */
 
     for (k = 0; k < 32; k++)
     {
-        n_p[p[k]] = k;
+        n_p[p_table[k]-1] = k+1;
     }
 }
