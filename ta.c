@@ -69,8 +69,8 @@ main (int argc, char **argv)
   int n;              /* Required number of experiments. */
   int i;              /* Loop index. */
   des_key_manager km; /* Key manager. */
-  uint64_t *r15, *r16; /* Right halves of text */
-  uint64_t k15, k16;       /* 16th round key */
+  uint64_t /**r14,*/ *r15, *r16; /* Right halves of text */
+  uint64_t /*k15,*/ k16;       /* Round keys */
 
   /************************************************************************/
   /* Before doing anything else, check the correctness of the DES library */
@@ -102,6 +102,7 @@ main (int argc, char **argv)
      n    /* Number of experiments to use. */
     );
   
+  /*r14 = XCALLOC (n, sizeof (uint64_t)) ;*/
   r15 = XCALLOC (n, sizeof (uint64_t));
   r16 = XCALLOC (n, sizeof(uint64_t));
 
@@ -110,54 +111,37 @@ main (int argc, char **argv)
       r15[i] = des_right_half(des_ip(ct[i])); /* We keep the least-significant bits of the ciphertext (l16 = r15) */
       r16[i] = des_left_half(des_ip(ct[i]));
   }
-
   k16 = round_key(r15, t, n);
 
-  printf("The key #16 is thought to be %" PRIx64 "\n", k16);
-
-/*  uint64_t *r14;
-
-  r14 = XCALLOC (n, sizeof (uint64_t));
-
+  /*
   for (i = 0; i < n; i++)
   {
-      r14[i] = r16[i] ^ des_p( des_sboxes ((des_e(r15[i]) ^ k16)));
+      r14[i] = r16[i] ^ des_p(des_sboxes((des_e(r15[i]) ^k16)));  We unfold the last round 
   }
-
   k15 = round_key(r14, t, n);
-  
-  printf("The key #15 is thought to be %" PRIx64 "\n", k15);
 */
+  /* Use the key manager to retrieve the 64-bit key */
 
-
-
-
-
-  /*******************************************************************************
-   * Try all the 256 secret keys under the assumption that the last round key is *
-   * all zeros.                                                                  *
-   *******************************************************************************/
-  /* If we are lucky, the secret key is one of the 256 possible with a all zeros
-   * last round key. Let's try them all, using the known plain text - cipher text
-   * pair as an oracle. */
   km = des_km_init ();    /* Initialize the key manager with no knowledge. */
-  /* Tell the key manager that we 'know' the last round key (#16) is all zeros. */
+
   des_km_set_rk (km,    /* Key manager */
      16,    /* Round key number */
      1,    /* Force (we do not care about conflicts with pre-existing knowledge) */
-     UINT64_C (0xffffffffffff),  /* We 'know' all the 48 bits of the round key */
-     (uint64_t) k16  /* The all zeros value for the round key */
+     UINT64_C (0xffffffffffff),  /* We know all the 48 bits of the round key */
+     k16  /* The value for the round key #16 */
     );
-  /* Brute force attack with the knowledge we have and a known
-   * plain text - cipher text pair as an oracle. */
-  if (!brute_force (km, pt, ct[0]))
+
+    if (brute_force(km, ct[0], ct[1]))
     {
-      printf ("Too bad, we lose: the last round key is not %" PRIx64".\n", k16);
+       printf("Congratulations!\n");
     }
-  free (ct);      /* Deallocate cipher texts */
-  free (t);      /* Deallocate timings */
-  des_km_free (km);    /* Deallocate the key manager */
-  return 0;      /* Exits with "everything went fine" status. */
+    else
+    {
+        printf("Macaron\n");
+    }
+
+
+
 }
 
 void
@@ -257,8 +241,8 @@ round_key (uint64_t *r, double *t, int n)
           pcc_max = (pcc > pcc_max) ? pcc : pcc_max ;
 
       } 
-      pcc_free(ctx); 
       round_key = round_key | (((uint64_t) i_m) << (8-sbox_k)*6); /* The round key is constructed SBox-by-Sbox */
+      pcc_free(ctx);
 
   }
   return round_key;
