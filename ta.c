@@ -209,56 +209,35 @@ round_key (uint64_t *ct, double *t, int n)
 
   for (sbox_k = 1; sbox_k <= 8; sbox_k++) /* For each SBox */
   {
-      double pearson[64] ; /* Reset the PCCs */
+      int ct_j; /* The ciphertext number */
+      ctx = pcc_init(64); /* Initialize the Pearson context */
       int key_i; /* The 6-bit key we consider */
-      int i_m = 0; /* Reset the argmax */
-
-      for (key_i = 0; key_i < 64; key_i++) /* For each 6-bit key */
+      
+      for (ct_j = 0; ct_j < n; ct_j++) /* For each ciphertext */
       {
-          uint64_t key = ((uint64_t) key_i) << (8-sbox_k)*6; /* We generate the key fitting the SBox # */
-          double time_clusters[5][n]; /* Time clusters, depending ont the HW */
-          int cluster_size[5] = {0}; /* Clusters size */
-          int ct_j; /* The ciphertext number */
-          
-          ctx = pcc_init(4); /* Initialize the Pearson context */
+          pcc_insert_x(ctx, t[ct_j]);
+      
+            for (key_i = 0; key_i < 64; key_i++) /* For each 6-bit key */
+            {
+            
+            uint64_t key = ((uint64_t) key_i) << (8-sbox_k)*6; /* We generate the key fitting the SBox # */
+            uint64_t sb_input = ((des_e(des_right_half(ct[ct_j])) ^ key) >> (8-sbox_k)*6) & mask; /* Input ciphering and masking */
+            uint64_t sb_output = des_sbox(sbox_k, sb_input); /* SBox #sbox_k output */
+            int hw = hamming_weight(sb_output); /* HW computation */
+            pcc_insert_y(ctx, key_i, hw);
 
-          for (ct_j = 0; ct_j < n; ct_j++) /* For each ciphertext */
-          {
-              uint64_t sb_input = ((des_e(des_right_half(ct[ct_j])) ^ key) >> (8-sbox_k)*6) & mask; /* Input ciphering and masking */
-              uint64_t sb_output = des_sbox(sbox_k, sb_input); /* SBox #sbox_k output */
-              int hw = hamming_weight(sb_output); /* HW computation */
-              time_clusters[hw][cluster_size[hw]] = t[ct_j]; /* We cluster the time taken according to HW */
-              cluster_size[hw] += 1; /* We keep track of the cluster sizes */
-          }
 
-          int min_cluster_size = n; /* Minimum cluster size */
-          int p; /* Loop index */
-          int q; /* Loop index */
-          for (p = 0; p < 5; p++) /* We compute the minimum cluster size */
-          {
-              min_cluster_size = (cluster_size[p] < min_cluster_size) ? cluster_size[p] : min_cluster_size;
-          }
-
-          for (p = 0; p < min_cluster_size; p++) /* We insert the random variable values into the PCC context ctx */
-          {
-              pcc_insert_x(ctx, time_clusters[0][p]); /* We use the HW=0 as a reference */
-              
-              for (q = 0; q < 4; q++)
-              {
-                  pcc_insert_y(ctx, q, time_clusters[q+1][p]);
-              }
-          }
-          pcc_consolidate(ctx);
-          pearson[key_i] = 0;
-          
-          for (q = 0; q < 4; q++)
-          {
-              pearson[key_i] += pcc_get_pcc(ctx, q); /* Average of the PCCs */
-
-          }
-          pearson[key_i] /= 4;
-          pcc_free(ctx); /* We free the context for later use */
-          i_m = (pearson[key_i] > pearson[i_m]) ? key_i : i_m; /* We keep the max pcc index */
+            }
+      }
+      pcc_consolidate(ctx);
+      int i_m = 0; /* Maximum index */
+      double pcc_max=0, pcc = 0;
+      
+      for (key_i = 0; key_i < 64; key_i++)
+      {
+          pcc = fabs(pcc_get_pcc(ctx, key_i));
+          i_m = (pcc > pcc_max) ? key_i : i_m;
+          pcc_max = (pcc > pcc_max) ? pcc : pcc_max ;
 
       } 
       
