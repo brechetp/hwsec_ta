@@ -53,6 +53,8 @@ int p_table[32] = { 16, 7, 20, 21,
   22, 11, 4, 25
 };
 
+int n_p[32];
+
 /* Returns the value of a given bit (0 or 1) of a 32 bits word. Positions are
  * numbered as in the DES standard: 1 is the leftmost and 32 is the rightmost.
  * */
@@ -60,15 +62,18 @@ int get_bit (int position, uint64_t val);
 
 /* Force a given bit of a 32 bits word to 1. Positions are numbered as in the
  * DES standard: 1 is the leftmost and 32 is the rightmost. */
-uint64_t set_bit (int position, uint64_t val);
+uint64_t set_bit (int position, int macaron, uint64_t val);
 
 /* Force a given bit of a 32 bits word to 0. Positions are numbered as in the
  * DES standard: 1 is the leftmost and 32 is the rightmost. */
 uint64_t unset_bit (int position, uint64_t val);
 
 /* Force a given bit of a 32 bits word to a given value. Positions are numbered
- * as in the DES standard: 1 is the leftmost and 32 is the rightmost. */
+ * as in the DES standard:: 1 is the leftmost and 32 is the rightmost. */
 uint64_t force_bit (int position, int value, uint64_t val);
+
+/* Inverse the P function */
+void inverse_p (int* p);
 
 /* Applies the P permutation to a 32 bits word and returns the result as another
  * 32 bits word. */
@@ -76,23 +81,12 @@ uint64_t
 des_p_ta (uint64_t val)
 {
   uint64_t res;
-  int i, j, k;
+  int i;
 
   res = UINT64_C (0);
-  k = 0;
   for (i = 1; i <= 32; i++)
     {
-      if (get_bit (i, val) == 1)
-        {
-          for (j = 1; j <= 32; j++)
-            {
-              if (p_table[j - 1] == i)  /* C array index starts at 0, not 1 */
-                {
-                  k = j;
-                }
-            }
-          res = set_bit (k, res);
-        }
+        res = set_bit (n_p[i],get_bit(i, val), res); /* We set the n_p[i]th bit to val[i] (thanks to get_bit) */
     }
   return res;
 }
@@ -116,14 +110,14 @@ get_bit (int position, uint64_t val)
 /* Force a given bit of a 32 bits word to 1. Positions are numbered as in the
  * DES standard: 1 is the leftmost and 32 is the rightmost. */
 uint64_t
-set_bit (int position, uint64_t val)
+set_bit (int position, int macaron,  uint64_t val)
 {
   uint64_t tmp;
   int i;
 
   if (position < 1 || position > 32)
     ERROR (-1, "invalid bit position (%d)", position);
-  tmp = UINT64_C (1);
+  tmp = macaron;
   for (i = 32; i > position; i--)
     tmp = tmp << 1;
   val = val | tmp;
@@ -160,5 +154,16 @@ force_bit (int position, int value, uint64_t val)
   if (value == 0)
     return unset_bit (position, val);
   else
-    return set_bit (position, val);
+    return set_bit (position, 1, val);
+}
+
+void
+inverse_p (int *p) /* We inverse the p table */
+{
+    int k; /* Loop index */
+
+    for (k = 0; k < 32; k++)
+    {
+        n_p[p[k]] = k;
+    }
 }

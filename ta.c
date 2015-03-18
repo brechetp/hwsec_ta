@@ -115,7 +115,7 @@ main (int argc, char **argv)
 
   printf("The key #16 is thought to be %" PRIx64 "\n", k16);
 
-  uint64_t *r14;
+/*  uint64_t *r14;
 
   r14 = XCALLOC (n, sizeof (uint64_t));
 
@@ -127,7 +127,7 @@ main (int argc, char **argv)
   k15 = round_key(r14, t, n);
   
   printf("The key #15 is thought to be %" PRIx64 "\n", k15);
-
+*/
 
 
 
@@ -143,16 +143,16 @@ main (int argc, char **argv)
   km = des_km_init ();    /* Initialize the key manager with no knowledge. */
   /* Tell the key manager that we 'know' the last round key (#16) is all zeros. */
   des_km_set_rk (km,    /* Key manager */
-     15,    /* Round key number */
+     16,    /* Round key number */
      1,    /* Force (we do not care about conflicts with pre-existing knowledge) */
      UINT64_C (0xffffffffffff),  /* We 'know' all the 48 bits of the round key */
-     (uint64_t) k15  /* The all zeros value for the round key */
+     (uint64_t) k16  /* The all zeros value for the round key */
     );
   /* Brute force attack with the knowledge we have and a known
    * plain text - cipher text pair as an oracle. */
   if (!brute_force (km, pt, ct[0]))
     {
-      printf ("Too bad, we lose: the last round key is not %" PRIx64".\n", k15);
+      printf ("Too bad, we lose: the last round key is not %" PRIx64".\n", k16);
     }
   free (ct);      /* Deallocate cipher texts */
   free (t);      /* Deallocate timings */
