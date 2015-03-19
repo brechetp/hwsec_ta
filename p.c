@@ -73,7 +73,7 @@ uint64_t unset_bit (int position, uint64_t val);
 uint64_t force_bit (int position, int value, uint64_t val);
 
 /* Inverse the P function */
-void inverse_p (int* p);
+void inverse_p ();
 
 /* Applies the P permutation to a 32 bits word and returns the result as another
  * 32 bits word. */
@@ -82,6 +82,7 @@ des_p_ta (uint64_t val)
 {
   uint64_t res;
   int i;
+  inverse_p(); /* We inverse the p table */
 
   res = UINT64_C (0);
   for (i = 1; i <= 32; i++)
@@ -158,12 +159,12 @@ force_bit (int position, int value, uint64_t val)
 }
 
 void
-inverse_p (int *p) /* We inverse the p table */
+inverse_p () /* We inverse the p table */
 {
-    int k; /* Loop index */
+    int k; /* Loop index */ 
 
     for (k = 0; k < 32; k++)
     {
-        n_p[p[k]] = k;
+        n_p[p_table[k]] = k;
     }
 }
