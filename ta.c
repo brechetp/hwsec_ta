@@ -145,6 +145,8 @@ main (int argc, char **argv)
     free (ct);
     des_km_free(km);
 
+    return 0;
+
 
 
 }
