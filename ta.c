@@ -257,7 +257,7 @@ round_key (uint64_t *r, double *t, int n)
           pcc_max = (pcc > pcc_max) ? pcc : pcc_max ;
 
       } 
-      
+      pcc_free(ctx); 
       round_key = round_key | (((uint64_t) i_m) << (8-sbox_k)*6); /* The round key is constructed SBox-by-Sbox */
 
   }

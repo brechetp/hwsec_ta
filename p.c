@@ -87,7 +87,7 @@ des_p_ta (uint64_t val)
   res = UINT64_C (0);
   for (i = 1; i <= 32; i++)
     {
-        res = set_bit (n_p[i],get_bit(i, val), res); /* We set the n_p[i]th bit to val[i] (thanks to get_bit) */
+        res = set_bit (n_p[i-1],get_bit(i, val), res); /* We set the n_p[i]th bit to val[i] (thanks to get_bit) */
     }
   return res;
 }
@@ -165,6 +165,6 @@ inverse_p () /* We inverse the p table */
 
     for (k = 0; k < 32; k++)
     {
-        n_p[p_table[k]] = k;
+        n_p[p_table[k]-1] = k+1;
     }
 }
