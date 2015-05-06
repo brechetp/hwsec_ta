@@ -186,7 +186,7 @@ brute_force (des_key_manager km, uint64_t pt, uint64_t ct)
       des_ks (ks, key);    /* Compute key schedule with current key */
       if (des_enc (ks, pt) == ct)  /* If we are lucky... cheers. */
         {
-          printf ("%016" PRIx64 "\n", key);
+          printf ("The 64-bit key is %016" PRIx64 "\n", key);
           return 1;    /* Stop iterating and return success indicator. */
         }
     }

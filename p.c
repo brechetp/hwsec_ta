@@ -53,7 +53,7 @@ int p_table[32] = { 16, 7, 20, 21,
   22, 11, 4, 25
 };
 
-int n_p[32];
+int n_p[32]; /* the P inverse table */
 
 /* Returns the value of a given bit (0 or 1) of a 32 bits word. Positions are
  * numbered as in the DES standard: 1 is the leftmost and 32 is the rightmost.
@@ -108,8 +108,7 @@ get_bit (int position, uint64_t val)
   return (int) (val);
 }
 
-/* Force a given bit of a 32 bits word to 1. Positions are numbered as in the
- * DES standard: 1 is the leftmost and 32 is the rightmost. */
+/* Set a given bit to the value macaron (0 or 1) */
 uint64_t
 set_bit (int position, int macaron,  uint64_t val)
 {

@@ -66,7 +66,7 @@ round_key == k16
 done
 
 
-The hack is successful with 2075 experiments on exp.dat. 
+The hack is successful with 9635 experiments on exp.dat. 
 
 We could improve it by keeping two possible keys instead of one only. For each SBox, we would have 2 keys, leading to 2^8 = 256 possible 48-bit keys. Then, the bruteforce could be feasible on those 256 keys.
 
@@ -75,5 +75,9 @@ We would keep those possible keys in a 8x2 uint64_t array. For each SBox k, poss
 Then, we would brute force each key (ordered by there index, 0 or 1 in the array).
 
 
+*** Counter mesure ***
 
+To secure our implementation, we have to secure the P function.
 
+We need to inverse the P function to perform the last step of DES. Therefore, we simply need to pre-compute the n_p table to access it in O(1) (constant time) regardless of the data. Such securisation is implemented in the p.c file, and the results are satisfactory.
+The P function seems safe (neither get_bit nor set_bit execution times depend on the value of the bit), we can't hack protected.dat even with 100000 experiments.
