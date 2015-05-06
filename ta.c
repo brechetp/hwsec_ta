@@ -70,7 +70,7 @@ main (int argc, char **argv)
   int i;              /* Loop index. */
   des_key_manager km; /* Key manager. */
   uint64_t *r15, *r16; /* Right halves of text */
-  uint64_t k15, k16;       /* 16th round key */
+  uint64_t k16;       /* 16th round key */
 
   /************************************************************************/
   /* Before doing anything else, check the correctness of the DES library */
@@ -112,24 +112,6 @@ main (int argc, char **argv)
   }
 
   k16 = round_key(r15, t, n);
-
-  printf("The key #16 is thought to be %" PRIx64 "\n", k16);
-
-/*  uint64_t *r14;
-
-  r14 = XCALLOC (n, sizeof (uint64_t));
-
-  for (i = 0; i < n; i++)
-  {
-      r14[i] = r16[i] ^ des_p( des_sboxes ((des_e(r15[i]) ^ k16)));
-  }
-
-  k15 = round_key(r14, t, n);
-  
-  printf("The key #15 is thought to be %" PRIx64 "\n", k15);
-*/
-
-
 
 
 
@@ -232,7 +214,7 @@ round_key (uint64_t *r, double *t, int n)
       
       for (r_j = 0; r_j < n; r_j++) /* For each ciphertext */
       {
-          pcc_insert_x(ctx, t[r_j]);
+          pcc_insert_x(ctx, t[r_j]); /* insert the time of experiment # j */
       
             for (key_i = 0; key_i < 64; key_i++) /* For each 6-bit key */
             {
@@ -241,24 +223,24 @@ round_key (uint64_t *r, double *t, int n)
             uint64_t sb_input = ((des_e(r[r_j]) ^ key) >> (8-sbox_k)*6) & mask; /* Input ciphering and masking */
             uint64_t sb_output = des_sbox(sbox_k, sb_input); /* SBox #sbox_k output */
             int hw = hamming_weight(sb_output); /* HW computation */
-            pcc_insert_y(ctx, key_i, hw);
+            pcc_insert_y(ctx, key_i, hw); /* insert realisation hw of random variable key_i into ctx */
 
 
             }
       }
       pcc_consolidate(ctx);
-      int i_m = 0; /* Maximum index */
+      int i_m = 0; /* Index of the max value = supposed key */
       double pcc_max=0, pcc = 0;
       
-      for (key_i = 0; key_i < 64; key_i++)
+      for (key_i = 0; key_i < 64; key_i++) /* Once experiments are run, we search for most likely key */
       {
-          pcc = fabs(pcc_get_pcc(ctx, key_i));
-          i_m = (pcc > pcc_max) ? key_i : i_m;
-          pcc_max = (pcc > pcc_max) ? pcc : pcc_max ;
+          pcc = (pcc_get_pcc(ctx, key_i)); /* PCC value of the key key_i */
+          i_m = (pcc > pcc_max) ? key_i : i_m; /* we keep the best fitting key */
+          pcc_max = (pcc > pcc_max) ? pcc : pcc_max ; /* and the max value */
 
       } 
       pcc_free(ctx); 
-      round_key = round_key | (((uint64_t) i_m) << (8-sbox_k)*6); /* The round key is constructed SBox-by-Sbox */
+      round_key = round_key | (((uint64_t) i_m) << (8-sbox_k)*6); /* The round key is constructed SBox by Sbox */
 
   }
   return round_key;
